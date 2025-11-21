@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DependencyInjectionAttributes\DependencyInjectionAttributes.csproj" />
+  </ItemGroup>
+</Project>

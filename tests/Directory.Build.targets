@@ -1,0 +1,5 @@
+<Project>
+  <!-- Empty target to make msbuild happy where nbgv is not presented -->
+  <Target Name="GenerateAssemblyNBGVVersionInfo"/>
+  <Target Name="GetBuildVersion"/>
+</Project>

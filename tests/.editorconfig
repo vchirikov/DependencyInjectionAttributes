@@ -1,0 +1,10 @@
+[*.cs]
+# CA1707: Identifiers should not contain underscores
+# Justification: Test method names contain underscores
+# https://docs.microsoft.com/en-us/visualstudio/code-quality/ca1707
+dotnet_diagnostic.CA1707.severity = none
+dotnet_diagnostic.CA2007.severity = none      # CA2007: Do not directly await a Task // we should use test sync context
+dotnet_diagnostic.VSTHRD200.severity = none   # VSTHRD200: Use "Async" suffix in names of methods that return an awaitable type
+dotnet_diagnostic.CA1852.severity = none      # CA1852: Type 'Xxx' can be sealed because it has no subtypes in its containing assembly and is not externally visible
+dotnet_diagnostic.CA1861.severity = silent    # CA1861: Avoid constant arrays as arguments
+dotnet_diagnostic.IDE0034.severity = silent   # IDE0034: Simplify 'default' expression (IDE0034)
