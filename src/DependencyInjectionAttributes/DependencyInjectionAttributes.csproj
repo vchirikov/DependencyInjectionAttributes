@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)build\**\*.*" Pack="true" Visible="false" PackagePath="build\%(RecursiveDir)%(Filename)%(Extension)" />
     <!-- we don't need to compile our assets -->
     <Compile Remove="$(MSBuildThisFileDirectory)build\compile\*.cs" />
   </ItemGroup>
