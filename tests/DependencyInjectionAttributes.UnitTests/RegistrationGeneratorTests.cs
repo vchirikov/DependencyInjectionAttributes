@@ -12,7 +12,7 @@ namespace DependencyInjectionAttributes.UnitTests;
 public class GeneratorTests
 {
   [Fact]
-  public void Generated()
+  public void Should_Generate_For_ServiceAttribute()
   {
     const string input = """
                          using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +53,26 @@ public class GeneratorTests
 
                       """.Replace("\r\n", "\n", StringComparison.Ordinal);
     Assert.Equal(expected, actual);
+  }
+
+  [Fact]
+  public void Should_Not_Generate_Without_AddServicesExtension()
+  {
+    const string input = """
+                         using Microsoft.Extensions.DependencyInjection;
+
+                         interface IBar {}
+
+                         [Service(ServiceLifetime.Scoped)]
+                         public class Bar: IBar {};
+                         """;
+
+    var generated = GenerateSourceText(input, new() {
+      { "DesignBuild", "false" },
+      { "AddServicesExtension", "false" },
+    }, out _, out _);
+
+    Assert.Empty(generated);
   }
 
   public static string[] GenerateSourceText(string input,

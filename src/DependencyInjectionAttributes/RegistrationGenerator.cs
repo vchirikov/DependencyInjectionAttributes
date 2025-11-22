@@ -19,7 +19,7 @@ namespace DependencyInjectionAttributes;
 [Generator]
 public class RegistrationGenerator : IIncrementalGenerator
 {
-  public static DiagnosticDescriptor AmbiguousLifetime { get; } = new(
+  public static DiagnosticDescriptor LifetimeConflict { get; } = new(
     "DIA001",
     "Lifetime registration conflict",
     "More than one registration matches {0} with different lifetimes {1}",
@@ -108,8 +108,7 @@ public class RegistrationGenerator : IIncrementalGenerator
       attr.ConstructorArguments[1].Type?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) ==
       "global::Microsoft.Extensions.DependencyInjection.ServiceLifetime";
 
-    // we recognize the attribute by name, not by type for flexability
-
+    // we recognize the attribute by name, not by type for flexibility
     var attributedServices = types
       .SelectMany((x, _) => {
         var name = x.Name;
@@ -152,9 +151,8 @@ public class RegistrationGenerator : IIncrementalGenerator
         transform: static (ctx, _) => GetServiceRegistration((InvocationExpressionSyntax)ctx.Node, ctx.SemanticModel))
       .Combine(context.AnalyzerConfigOptionsProvider)
       .Where(x => {
-        (var registration, var options) = x;
-        return options.GlobalOptions.TryGetValue("build_property.AddServicesExtension", out var value) &&
-               bool.TryParse(value, out var addServices) && addServices && registration is not null;
+        var (registration, options) = x;
+        return IsPropertyEnabled(options, "AddServicesExtension") && registration is not null;
       })
       .Select((x, _) => x.Left)
       .Collect();
@@ -188,46 +186,61 @@ public class RegistrationGenerator : IIncrementalGenerator
       });
 
     // Flatten and remove duplicates
-    var finalServices = attributedServices.Collect().Combine(conventionServices.Collect())
-      .SelectMany((tuple, _) => ImmutableArray.CreateRange([tuple.Item1, tuple.Item2]))
+    IncrementalValuesProvider<ServiceSymbol> finalServices = attributedServices.Collect()
+      .Combine(conventionServices.Collect())
+      .SelectMany((tuple, _) => ImmutableArray.CreateRange([tuple.Left, tuple.Right]))
       .SelectMany((items, _) => items.Distinct().ToImmutableArray());
 
-    RegisterServicesOutput(context, finalServices, context.CompilationProvider);
+    RegisterServicesOutput(context, finalServices, context.CompilationProvider, context.AnalyzerConfigOptionsProvider);
   }
 
   void RegisterServicesOutput(IncrementalGeneratorInitializationContext context,
     IncrementalValuesProvider<ServiceSymbol> services,
-    IncrementalValueProvider<Compilation> compilation
+    IncrementalValueProvider<Compilation> compilation,
+    IncrementalValueProvider<AnalyzerConfigOptionsProvider> analyzerConfigOptionsProvider
   )
   {
     context.RegisterImplementationSourceOutput(
-      services.Where(x => x!.Lifetime == 0 && x.Key is null).Select((x, _) => new KeyedService(x!.Type, null)).Collect()
-        .Combine(compilation),
+      services
+        .Where(x => x!.Lifetime == 0 && x.Key is null).Select((x, _) => new KeyedService(x!.Type, null))
+        .Collect()
+        .Combine(compilation)
+        .Combine(analyzerConfigOptionsProvider),
       (ctx, data) => AddPartial("AddSingleton", ctx, data));
 
     context.RegisterImplementationSourceOutput(
-      services.Where(x => x!.Lifetime == 1 && x.Key is null).Select((x, _) => new KeyedService(x!.Type, null)).Collect()
-        .Combine(compilation),
+      services.Where(x => x!.Lifetime == 1 && x.Key is null).Select((x, _) => new KeyedService(x!.Type, null))
+        .Collect()
+        .Combine(compilation)
+        .Combine(analyzerConfigOptionsProvider),
       (ctx, data) => AddPartial("AddScoped", ctx, data));
 
     context.RegisterImplementationSourceOutput(
-      services.Where(x => x!.Lifetime == 2 && x.Key is null).Select((x, _) => new KeyedService(x!.Type, null)).Collect()
-        .Combine(compilation),
+      services.Where(x => x!.Lifetime == 2 && x.Key is null).Select((x, _) => new KeyedService(x!.Type, null))
+        .Collect()
+        .Combine(compilation)
+        .Combine(analyzerConfigOptionsProvider),
       (ctx, data) => AddPartial("AddTransient", ctx, data));
 
     context.RegisterImplementationSourceOutput(
       services.Where(x => x!.Lifetime == 0 && x.Key is not null).Select((x, _) => new KeyedService(x!.Type, x.Key!))
-        .Collect().Combine(compilation),
+        .Collect()
+        .Combine(compilation)
+        .Combine(analyzerConfigOptionsProvider),
       (ctx, data) => AddPartial("AddKeyedSingleton", ctx, data));
 
     context.RegisterImplementationSourceOutput(
       services.Where(x => x!.Lifetime == 1 && x.Key is not null).Select((x, _) => new KeyedService(x!.Type, x.Key!))
-        .Collect().Combine(compilation),
+        .Collect()
+        .Combine(compilation)
+        .Combine(analyzerConfigOptionsProvider),
       (ctx, data) => AddPartial("AddKeyedScoped", ctx, data));
 
     context.RegisterImplementationSourceOutput(
       services.Where(x => x!.Lifetime == 2 && x.Key is not null).Select((x, _) => new KeyedService(x!.Type, x.Key!))
-        .Collect().Combine(compilation),
+        .Collect()
+        .Combine(compilation)
+        .Combine(analyzerConfigOptionsProvider),
       (ctx, data) => AddPartial("AddKeyedTransient", ctx, data));
 
     context.RegisterImplementationSourceOutput(services.Collect(), ReportInconsistencies);
@@ -242,18 +255,19 @@ public class RegistrationGenerator : IIncrementalGenerator
 
     foreach (var group in grouped) {
       // report if within the group, there are different lifetimes with the same key (or no key)
-      foreach (var keyed in group.GroupBy(x => x.Key?.Value).Where(g => g.Count() > 1)) {
+      foreach (var keyed in group.GroupBy(x => x.Key?.Value).Where(g => g.Skip(1).Any())) {
         var lifetimes = keyed.Select(x => x.Lifetime).Distinct()
           .Select(x => x switch { 0 => "Singleton", 1 => "Scoped", 2 => "Transient", _ => "Unknown" })
           .ToArray();
 
-        if (lifetimes.Length == 1)
+        if (lifetimes.Length == 1) {
           continue;
+        }
 
         var location = keyed.FirstOrDefault(x => x.Location != null)?.Location;
         var otherLocations = keyed.Where(x => x.Location != null).Skip(1).Select(x => x.Location!);
 
-        context.ReportDiagnostic(Diagnostic.Create(AmbiguousLifetime,
+        context.ReportDiagnostic(Diagnostic.Create(LifetimeConflict,
           location, otherLocations, keyed.First().Type.ToDisplayString(), string.Join(", ", lifetimes)));
       }
     }
@@ -310,12 +324,17 @@ public class RegistrationGenerator : IIncrementalGenerator
 
   void AddPartial(string methodName,
     SourceProductionContext ctx,
-    (ImmutableArray<KeyedService> Types, Compilation Compilation) data
+    ((ImmutableArray<KeyedService> Types, Compilation Compilation) Left, AnalyzerConfigOptionsProvider Right) data
   )
   {
+    var ((types, compilation), config) = data;
+    if (!IsPropertyEnabled(config, "AddServicesExtension")) {
+      return;
+    }
+
     var builder = new StringBuilder(512).AppendLine("// <auto-generated />");
 
-    foreach (var alias in data.Compilation.References.SelectMany(r => r.Properties.Aliases)) {
+    foreach (var alias in compilation.References.SelectMany(r => r.Properties.Aliases)) {
       builder.AppendLine($"extern alias {alias};");
     }
 
@@ -332,8 +351,8 @@ public class RegistrationGenerator : IIncrementalGenerator
                 {
         """);
 
-    AddServices(data.Types.Where(x => x.Key is null).Select(x => x.Type), data.Compilation, methodName, builder);
-    AddKeyedServices(data.Types.Where(x => x.Key is not null), data.Compilation, methodName, builder);
+    AddServices(types.Where(x => x.Key is null).Select(x => x.Type), compilation, methodName, builder);
+    AddKeyedServices(types.Where(x => x.Key is not null), compilation, methodName, builder);
 
     builder.AppendLine(
       """
@@ -435,7 +454,7 @@ public class RegistrationGenerator : IIncrementalGenerator
     StringBuilder output
   )
   {
-    bool isAccessible(ISymbol s) => compilation.IsSymbolAccessible(s);
+    bool IsAccessible(ISymbol s) => compilation.IsSymbolAccessible(s);
 
     foreach (var type in services) {
       var impl = type.Type.ToFullName(compilation);
@@ -443,7 +462,7 @@ public class RegistrationGenerator : IIncrementalGenerator
       var key = type.Key!.Value.ToCSharpString();
 
       var ctor = type.Type.InstanceConstructors
-        .Where(isAccessible)
+        .Where(IsAccessible)
         .OrderByDescending(m => m.Parameters.Length)
         .FirstOrDefault();
 
