@@ -9,7 +9,7 @@ namespace Microsoft.Extensions.DependencyInjection
   /// Configures the registration of a service in an <see cref="IServiceCollection"/> via `AddServices` extension
   /// </summary>
   [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
-  partial class ServiceAttribute : Attribute
+  public partial class ServiceAttribute : Attribute
   {
     /// <summary>
     /// Annotates the service with the lifetime
