@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <!-- use AddServiceAttribute=true ONCE, e.g. in your `Shared` / `Platform` / `Utils` project -->
+    <AddServiceAttribute Condition="'$(AddServiceAttribute)' == ''">false</AddServiceAttribute>
+    <!-- enable this property in your app projects -->
+    <AddServicesExtension Condition="'$(AddServicesExtension)' == '' AND '$(IsPublishable)' == 'true' ">true</AddServicesExtension>
+    <AddServicesExtension Condition="'$(AddServicesExtension)' == ''">false</AddServicesExtension>
+  </PropertyGroup>
+</Project>

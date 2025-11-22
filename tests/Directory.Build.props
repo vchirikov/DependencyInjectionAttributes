@@ -25,8 +25,11 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3"/>
     <PackageReference Include="xunit.analyzers" PrivateAssets="All" IncludeAssets="runtime; build; native; contentfiles; analyzers"/>
+    <PackageReference Include="FakeItEasy"/>
+    <PackageReference Include="FakeItEasy.Analyzer.CSharp" PrivateAssets="All" IncludeAssets="runtime; build; native; contentfiles; analyzers"/>
     <!-- Testing-related global usings -->
     <Using Include="Xunit"/>
+    <Using Include="FakeItEasy"/>
     <None Include="$(MSBuildThisFileDirectory)template.xunit.runner.json" CopyToOutputDirectory="PreserveNewest" Link="$(AssemblyName).xunit.runner.json"/>
   </ItemGroup>
 

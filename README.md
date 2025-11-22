@@ -9,4 +9,13 @@
 Source-generated compile-time service registrations via attributes for `Microsoft.Extensions.DependencyInjection` with no runtime dependencies.
 
 
-
+```xml
+<Project>
+  <PropertyGroup>
+    <!-- Use AddServiceAttribute to generate `ServiceAttribute` (e.g. in a shared/platform/utils project) -->
+    <AddServiceAttribute>true</AddServiceAttribute>
+    <!-- Use AddServicesExtension to generate `AddServices` extensions methods (e.g. in an app project) -->
+    <AddServicesExtension>true</AddServicesExtension>
+  </PropertyGroup>
+</Project>
+```

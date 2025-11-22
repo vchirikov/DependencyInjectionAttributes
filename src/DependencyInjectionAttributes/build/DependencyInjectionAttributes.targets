@@ -1,0 +1,15 @@
+<Project>
+
+  <ItemGroup>
+    <CompilerVisibleProperty Include="DesignTimeBuild" />
+    <CompilerVisibleProperty Include="AddServiceAttribute" />
+    <CompilerVisibleProperty Include="AddServicesExtension" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- we need to add `Compile` items with condition, thus we can't use convention `content` nuget folder for this   -->
+    <Compile Include="$(MSBuildThisFileDirectory)compile\ServiceAttribute*.cs" Visible="false" PackageId="DependencyInjectionAttributes" Condition="'$(AddServiceAttribute)' == 'true'" />
+    <Compile Include="$(MSBuildThisFileDirectory)compile\AddServices*.cs" Visible="false" PackageId="DependencyInjectionAttributes" Condition="'$(AddServicesExtension)' == 'true'" />
+  </ItemGroup>
+
+</Project>
